@@ -1,0 +1,79 @@
+{
+  "project": {
+    "name": "Fipik",
+    "description": "Безопасный прототип полётного контроллера квадрокоптера на ESP32",
+    "development_root": "/home/work/Fipik",
+    "repository": {
+      "remote": "git@github.com:korshun199/Fipik.git",
+      "branch": "main"
+    }
+  },
+  "owner": {
+    "name": "Олежка",
+    "preferences": {
+      "favorite_kefir": "не указан"
+    }
+  },
+  "development": {
+    "build_system": "PlatformIO",
+    "environment": "esp32dev",
+    "serial_port": "/dev/ttyUSB0",
+    "serial_baud": 115200
+  },
+  "configuration": {
+    "firmware_runtime": "data/flight-controller.json",
+    "global_project": "config/project.json",
+    "rule": "Параметры оборудования для прошивки изменяются в firmware_runtime. Этот файл хранит общую информацию о проекте."
+  },
+  "hardware": {
+    "controller": {
+      "model": "LILYGO ESP32 OLED V3.0",
+      "mcu": "ESP32-WROOM-32",
+      "display": {
+        "model": "SSD1306",
+        "resolution_px": "128x64",
+        "i2c_sda_gpio": 21,
+        "i2c_scl_gpio": 22,
+        "i2c_address": "0x3C"
+      }
+    },
+    "magnetometer": {
+      "model": "GY-271",
+      "connection": "I2C shared with OLED",
+      "status": "working",
+      "detected_chip": "QMC5883L",
+      "i2c_address": "0x0D",
+      "physical_wiring": {
+        "module_sda_to_esp_gpio": 22,
+        "module_scl_to_esp_gpio": 21,
+        "note": "Маркировка SDA/SCL на модуле перепутана; проверено сканером I2C"
+      }
+    },
+    "esc": {
+      "model": "HAKRC 4-in-1 45A",
+      "status": "not_connected"
+    },
+    "battery": {
+      "nominal_voltage_v": 24.0,
+      "capacity_mah": 8700,
+      "chemistry": "not_specified",
+      "status": "not_connected"
+    },
+    "imu": {
+      "model": "not_selected",
+      "status": "required_before_flight"
+    }
+  },
+  "safety": {
+    "motor_output_enabled": false,
+    "test_power_source": "USB only",
+    "esc_connection_allowed": false,
+    "propellers_allowed": false,
+    "rule": "Моторы и ESC не подключаются до завершения стендовых проверок IMU, питания и failsafe."
+  },
+  "project_status": {
+    "oled_status": "working",
+    "magnetometer_detection": "QMC5883L_found_at_0x0D",
+    "next_hardware_step": "Keep current GY-271 SDA/SCL wiring"
+  }
+}
