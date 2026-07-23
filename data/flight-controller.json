@@ -16,6 +16,14 @@
     "protocol": "dshot300",
     "motor_pins": [25, 26, 27, 14]
   },
+  "display": {
+    "model": "SSD1306",
+    "width_px": 128,
+    "height_px": 64,
+    "i2c_sda_pin": 21,
+    "i2c_scl_pin": 22,
+    "i2c_address": 60
+  },
   "sensors": {
     "magnetometer": {
       "model": "GY-271",
