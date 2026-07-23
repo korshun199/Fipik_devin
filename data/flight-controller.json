@@ -1,0 +1,36 @@
+{
+  "vehicle": {
+    "name": "Fipik-01",
+    "frame": "quad_x"
+  },
+  "battery": {
+    "chemistry": "unknown",
+    "nominal_voltage_v": 24.0,
+    "capacity_mah": 8700,
+    "maximum_voltage_v": 25.2,
+    "warning_voltage_v": 21.6,
+    "critical_voltage_v": 20.4
+  },
+  "esc": {
+    "model": "HAKRC 4-in-1 45A",
+    "protocol": "dshot300",
+    "motor_pins": [25, 26, 27, 14]
+  },
+  "sensors": {
+    "magnetometer": {
+      "model": "GY-271",
+      "i2c_sda_pin": 21,
+      "i2c_scl_pin": 22,
+      "i2c_address": "auto"
+    },
+    "imu": {
+      "model": "not_installed"
+    }
+  },
+  "safety": {
+    "motor_output_enabled": false,
+    "arm_requires_zero_throttle": true,
+    "radio_timeout_ms": 300,
+    "low_battery_disarm": true
+  }
+}

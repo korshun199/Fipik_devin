@@ -1,0 +1,9 @@
+.pio/
+.vscode/
+*.log
+*.code-workspace
+*.swp
+.DS_Store
+.env
+data/local-overrides.json
+secrets/
