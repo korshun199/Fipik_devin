@@ -1,0 +1,1 @@
+"""Fipik local configuration server."""

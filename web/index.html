@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fipik Control Center</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #090d18;
+        --panel: rgba(18, 25, 43, .86);
+        --panel-soft: #151e33;
+        --line: #273554;
+        --text: #f5f7ff;
+        --muted: #8d9ab5;
+        --accent: #67e8b4;
+        --accent-2: #73a7ff;
+        --warning: #f7c873;
+        --danger: #ff8e9e;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body {
+        min-width: 320px;
+        margin: 0;
+        color: var(--text);
+        background: radial-gradient(circle at 85% -10%, #203662 0, transparent 34rem), var(--bg);
+      }
+      button, input { font: inherit; }
+      button { cursor: pointer; }
+      .shell { width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 38px 0 64px; }
+      .topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 30px; }
+      .eyebrow { margin: 0 0 9px; color: var(--accent); font-size: 12px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+      h1, h2, p { margin-top: 0; }
+      h1 { margin-bottom: 8px; font-size: clamp(30px, 5vw, 52px); letter-spacing: -.045em; line-height: 1; }
+      .subtitle { margin: 0; color: var(--muted); font-size: 15px; }
+      .connection { display: flex; align-items: center; gap: 9px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: rgba(18, 25, 43, .7); font-size: 13px; white-space: nowrap; }
+      .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warning); box-shadow: 0 0 14px currentColor; }
+      .dot.ok { color: var(--accent); background: var(--accent); }
+      .dot.error { color: var(--danger); background: var(--danger); }
+      .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 22px; }
+      .metric, .panel { border: 1px solid var(--line); background: linear-gradient(145deg, rgba(24, 34, 58, .9), rgba(13, 18, 32, .9)); box-shadow: 0 20px 60px rgba(0, 0, 0, .18); }
+      .metric { min-height: 126px; padding: 19px; border-radius: 17px; }
+      .metric-label { color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+      .metric-value { margin: 13px 0 3px; font-size: 26px; font-weight: 800; letter-spacing: -.03em; }
+      .metric-note { color: var(--muted); font-size: 12px; }
+      .layout { display: grid; grid-template-columns: 1.1fr .9fr; gap: 22px; align-items: start; }
+      .panel { border-radius: 20px; padding: 24px; }
+      .panel + .panel { margin-top: 22px; }
+      .panel-heading { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; margin-bottom: 22px; }
+      h2 { margin-bottom: 5px; font-size: 19px; letter-spacing: -.02em; }
+      .hint { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+      .fields { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+      label { display: grid; gap: 8px; color: var(--muted); font-size: 12px; font-weight: 700; }
+      input[type="text"], input[type="number"] { width: 100%; padding: 11px 12px; border: 1px solid var(--line); border-radius: 10px; outline: none; color: var(--text); background: #0c1324; }
+      input:focus { border-color: var(--accent-2); box-shadow: 0 0 0 3px rgba(115, 167, 255, .13); }
+      .switch-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid rgba(39, 53, 84, .7); }
+      .switch-row:last-child { border-bottom: 0; padding-bottom: 0; }
+      .switch-title { margin-bottom: 4px; color: var(--text); font-size: 14px; font-weight: 700; }
+      .switch-note { color: var(--muted); font-size: 12px; }
+      .switch { position: relative; width: 44px; height: 24px; flex: 0 0 auto; }
+      .switch input { width: 0; height: 0; opacity: 0; }
+      .slider { position: absolute; inset: 0; border-radius: 99px; background: #34415d; transition: .2s; }
+      .slider::before { position: absolute; width: 18px; height: 18px; left: 3px; top: 3px; border-radius: 50%; background: #f5f7ff; content: ""; transition: .2s; }
+      .switch input:checked + .slider { background: var(--accent); }
+      .switch input:checked + .slider::before { transform: translateX(20px); background: #092719; }
+      .actions { display: flex; align-items: center; gap: 12px; margin-top: 22px; }
+      .primary { padding: 12px 18px; border: 0; border-radius: 11px; color: #062217; background: var(--accent); font-weight: 800; }
+      .secondary { padding: 11px 16px; border: 1px solid var(--line); border-radius: 11px; color: var(--text); background: transparent; }
+      .status { color: var(--muted); font-size: 13px; }
+      .status.good { color: var(--accent); }
+      .status.bad { color: var(--danger); }
+      details summary { cursor: pointer; color: var(--muted); font-size: 13px; font-weight: 700; }
+      textarea { width: 100%; min-height: 330px; margin-top: 16px; padding: 12px; border: 1px solid var(--line); border-radius: 11px; resize: vertical; outline: none; color: var(--text); background: #0c1324; font: 12px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; }
+      @media (max-width: 850px) { .metrics { grid-template-columns: repeat(2, 1fr); } .layout { grid-template-columns: 1fr; } }
+      @media (max-width: 520px) { .shell { width: min(100% - 24px, 1180px); padding-top: 24px; } .topbar { display: block; } .connection { display: inline-flex; margin-top: 18px; } .fields { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Fipik / flight systems</p>
+          <h1>Control Center</h1>
+          <p class="subtitle">Настройка полётного контроллера без шаманства с JSON.</p>
+        </div>
+        <div class="connection"><span id="health-dot" class="dot"></span><span id="health-text">Проверка связи…</span></div>
+      </header>
+
+      <section class="metrics">
+        <article class="metric"><div class="metric-label">Питание</div><div id="metric-voltage" class="metric-value">—</div><div id="metric-capacity" class="metric-note">—</div></article>
+        <article class="metric"><div class="metric-label">Дисплей</div><div id="metric-display" class="metric-value">—</div><div class="metric-note">встроенный OLED</div></article>
+        <article class="metric"><div class="metric-label">Магнитометр</div><div id="metric-mag" class="metric-value">—</div><div class="metric-note">GY-271</div></article>
+        <article class="metric"><div class="metric-label">ESC</div><div id="metric-esc" class="metric-value">—</div><div class="metric-note">выход моторов</div></article>
+      </section>
+
+      <div class="layout">
+        <section class="panel">
+          <div class="panel-heading"><div><h2>Параметры батареи</h2><p class="hint">Пороговые значения пока используются только как настройки стенда.</p></div></div>
+          <div class="fields">
+            <label>Номинальное напряжение, V<input id="battery-voltage" type="number" step="0.1" /></label>
+            <label>Ёмкость, mAh<input id="battery-capacity" type="number" step="100" /></label>
+            <label>Предупреждение, V<input id="battery-warning" type="number" step="0.1" /></label>
+            <label>Критический уровень, V<input id="battery-critical" type="number" step="0.1" /></label>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-heading"><div><h2>Безопасность</h2><p class="hint">Здесь сейчас всё должно оставаться выключенным.</p></div></div>
+          <div class="switch-row"><div><div class="switch-title">Выход моторов</div><div class="switch-note">Разрешить сигналы на ESC</div></div><label class="switch"><input id="motors-enabled" type="checkbox" /><span class="slider"></span></label></div>
+          <div class="switch-row"><div><div class="switch-title">Нулевой газ при ARM</div><div class="switch-note">Обязательная проверка перед запуском</div></div><label class="switch"><input id="zero-throttle" type="checkbox" /><span class="slider"></span></label></div>
+          <div class="switch-row"><div><div class="switch-title">Отключение при низком заряде</div><div class="switch-note">Автоматический disarm</div></div><label class="switch"><input id="low-battery" type="checkbox" /><span class="slider"></span></label></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-heading"><div><h2>OLED и I²C</h2><p class="hint">Общая шина дисплея и будущего GY-271.</p></div></div>
+          <div class="fields">
+            <label>SDA GPIO<input id="display-sda" type="number" /></label>
+            <label>SCL GPIO<input id="display-scl" type="number" /></label>
+            <label>I²C адрес<input id="display-address" type="number" /></label>
+            <label>Разрешение<input id="display-resolution" type="text" value="128×64" /></label>
+          </div>
+          <div class="actions"><button class="secondary" id="reload">Обновить</button><span class="status" id="form-status"></span></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-heading"><div><h2>Расширенный режим</h2><p class="hint">Полный JSON для параметров, которые ещё не вынесены в форму.</p></div></div>
+          <details><summary>Открыть JSON конфигурации</summary><textarea id="raw-config" spellcheck="false"></textarea><div class="actions"><button class="primary" id="save-raw">Сохранить JSON</button></div></details>
+        </section>
+      </div>
+    </main>
+    <script>
+      let config = null;
+      const $ = id => document.getElementById(id);
+      const setStatus = (text, kind = '') => { $('form-status').textContent = text; $('form-status').className = `status ${kind}`; };
+      const setValue = (id, value) => { $(id).value = value ?? ''; };
+      function render() {
+        const battery = config.battery || {}, display = config.display || {}, safety = config.safety || {};
+        setValue('battery-voltage', battery.nominal_voltage_v); setValue('battery-capacity', battery.capacity_mah);
+        setValue('battery-warning', battery.warning_voltage_v); setValue('battery-critical', battery.critical_voltage_v);
+        setValue('display-sda', display.i2c_sda_pin); setValue('display-scl', display.i2c_scl_pin); setValue('display-address', display.i2c_address);
+        $('motors-enabled').checked = Boolean(safety.motor_output_enabled); $('zero-throttle').checked = Boolean(safety.arm_requires_zero_throttle); $('low-battery').checked = Boolean(safety.low_battery_disarm);
+        $('raw-config').value = JSON.stringify(config, null, 2);
+        $('metric-voltage').textContent = `${battery.nominal_voltage_v ?? '—'} V`; $('metric-capacity').textContent = `${battery.capacity_mah ?? '—'} mAh`;
+        $('metric-display').textContent = display.model || '—'; $('metric-mag').textContent = config.sensors?.magnetometer?.model || '—'; $('metric-esc').textContent = safety.motor_output_enabled ? 'ARMED' : 'OFF';
+      }
+      async function load() {
+        const [healthResponse, configResponse] = await Promise.all([fetch('/api/health'), fetch('/api/config')]);
+        if (!healthResponse.ok || !configResponse.ok) throw new Error('Сервер не отвечает');
+        config = await configResponse.json(); render(); $('health-dot').className = 'dot ok'; $('health-text').textContent = 'Локальный сервер подключён';
+      }
+      function formConfig() {
+        const next = structuredClone(config); next.battery.nominal_voltage_v = Number($('battery-voltage').value); next.battery.capacity_mah = Number($('battery-capacity').value); next.battery.warning_voltage_v = Number($('battery-warning').value); next.battery.critical_voltage_v = Number($('battery-critical').value); next.display.i2c_sda_pin = Number($('display-sda').value); next.display.i2c_scl_pin = Number($('display-scl').value); next.display.i2c_address = Number($('display-address').value); next.safety.motor_output_enabled = $('motors-enabled').checked; next.safety.arm_requires_zero_throttle = $('zero-throttle').checked; next.safety.low_battery_disarm = $('low-battery').checked; return next;
+      }
+      async function save(next) { const response = await fetch('/api/config', { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(next) }); if (!response.ok) throw new Error(`HTTP ${response.status}`); config = await response.json(); render(); setStatus('Сохранено', 'good'); }
+      $('reload').onclick = () => load().then(() => setStatus('Обновлено', 'good')).catch(error => setStatus(error.message, 'bad'));
+      $('save-raw').onclick = () => { try { save(JSON.parse($('raw-config').value)); } catch (error) { setStatus(`Ошибка JSON: ${error.message}`, 'bad'); } };
+      document.querySelectorAll('input').forEach(input => input.addEventListener('change', () => save(formConfig()).catch(error => setStatus(error.message, 'bad'))));
+      load().catch(error => { $('health-dot').className = 'dot error'; $('health-text').textContent = error.message; setStatus(error.message, 'bad'); });
+    </script>
+  </body>
+</html>

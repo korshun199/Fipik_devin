@@ -13,6 +13,8 @@
   },
   "esc": {
     "model": "HAKRC 4-in-1 45A",
+    "board": "HK8B304 V1.0",
+    "firmware": "BLHeli_S BL16.7",
     "protocol": "dshot300",
     "motor_pins": [25, 26, 27, 14]
   },

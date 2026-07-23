@@ -13,7 +13,9 @@ An IMU with a three-axis gyroscope and accelerometer is still required before an
 
 ## Configuration
 
-All adjustable hardware parameters are in `data/flight-controller.json`. It is uploaded to LittleFS separately from the firmware:
+`config/project.json` is the global project passport: paths, development settings, hardware inventory, safety constraints, and project status.
+
+All adjustable hardware parameters used by the ESP32 firmware are in `data/flight-controller.json`. It is uploaded to LittleFS separately from the firmware:
 
 ```sh
 pio run --target uploadfs
@@ -29,3 +31,23 @@ pio run --target uploadfs
 pio run --target upload
 pio device monitor
 ```
+
+## Local web configurator
+
+The Flask server serves the web configurator and a local REST API. It binds to `127.0.0.1` by default and does not expose the configuration to the network:
+
+```sh
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
+python -m server.app
+```
+
+Open `http://127.0.0.1:5000/` in a browser.
+
+Available endpoints:
+
+- `GET /api/health` — server status;
+- `GET /api/project` — global project configuration;
+- `GET /api/config` — firmware configuration;
+- `PUT /api/config` — merge and save firmware configuration.

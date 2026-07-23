@@ -51,7 +51,10 @@
     },
     "esc": {
       "model": "HAKRC 4-in-1 45A",
-      "status": "not_connected"
+      "board": "HK8B304 V1.0",
+      "firmware": "BLHeli_S BL16.7",
+      "protocol": "DShot300",
+      "status": "powered_tested"
     },
     "battery": {
       "nominal_voltage_v": 24.0,
