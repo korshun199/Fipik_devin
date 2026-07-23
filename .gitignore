@@ -5,5 +5,7 @@
 *.swp
 .DS_Store
 .env
+__pycache__/
+*.py[cod]
 data/local-overrides.json
 secrets/
