@@ -44,9 +44,9 @@
       "detected_chip": "QMC5883L",
       "i2c_address": "0x0D",
       "physical_wiring": {
-        "module_sda_to_esp_gpio": 22,
-        "module_scl_to_esp_gpio": 21,
-        "note": "Маркировка SDA/SCL на модуле перепутана; проверено сканером I2C"
+        "module_sda_to_esp_gpio": 21,
+        "module_scl_to_esp_gpio": 22,
+        "note": "Стандартная распиновка подтверждена сканером I2C"
       }
     },
     "esc": {

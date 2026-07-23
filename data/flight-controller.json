@@ -31,9 +31,9 @@
       "i2c_scl_pin": 22,
       "i2c_address": 13,
       "detected_chip": "QMC5883L",
-      "physical_module_sda_pin": 22,
-      "physical_module_scl_pin": 21,
-      "wiring_note": "SDA/SCL на модуле промаркированы наоборот"
+      "physical_module_sda_pin": 21,
+      "physical_module_scl_pin": 22,
+      "wiring_note": "Стандартная распиновка SDA/SCL"
     },
     "imu": {
       "model": "not_installed"
