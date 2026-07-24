@@ -24,8 +24,10 @@ constexpr uint8_t kEscPwmResolution = 16;
 constexpr uint16_t kEscPwmSafeUs = 1000;
 constexpr uint16_t kEscPwmTestUs = 1150;
 constexpr uint16_t kEscPwmHighUs = 2000;
-constexpr uint16_t kEscRadioMaxUs = 1500;
+constexpr uint16_t kEscRadioMaxUs = 1150;
 constexpr uint16_t kEscRadioIdleDeadbandUs = 15;
+constexpr uint8_t kArmChannelIndex = 3;
+constexpr uint16_t kArmThreshold = 1000;
 constexpr unsigned long kReceiverTimeoutMs = 300;
 constexpr uint8_t kReceiverRxPin = 16;
 constexpr uint8_t kReceiverTxPin = 17;
@@ -44,6 +46,7 @@ uint16_t receiverChannels[4] = {992, 992, 992, 172};
 bool receiverSignalDetected = false;
 unsigned long lastReceiverFrameMs = 0;
 uint16_t motorOutputUs = kEscPwmSafeUs;
+bool motorArmed = false;
 uint8_t displaySdaPin = 5;
 uint8_t displaySclPin = 4;
 uint8_t displayAddress = 0x3C;
@@ -223,7 +226,8 @@ void handleEscTest() {
 void updateMotorFromReceiver() {
   const bool linkActive = receiverSignalDetected &&
                           millis() - lastReceiverFrameMs <= kReceiverTimeoutMs;
-  if (!linkActive) {
+  motorArmed = linkActive && receiverChannels[kArmChannelIndex] > kArmThreshold;
+  if (!motorArmed) {
     motorOutputUs = kEscPwmSafeUs;
   } else {
     const uint16_t throttle = receiverChannels[2];
@@ -234,7 +238,7 @@ void updateMotorFromReceiver() {
       motorOutputUs = kEscPwmSafeUs;
     }
   }
-  writeEscPwm(kEscPwmChannels[0], motorOutputUs);
+  writeEscPwm(kEscPwmChannels[3], motorOutputUs);
 }
 
 bool initializeDisplay() {
@@ -267,10 +271,11 @@ void renderDisplay() {
   display.setCursor(0, 14);
   display.printf("I2C: %s\n", i2cDevices.c_str());
   display.printf("MAG: %s\n", magnetometerModel);
-  display.printf("RC:%s\n", receiverSignalDetected ? "OK" : "--");
+  display.printf("RC:%s A:%s\n", receiverSignalDetected ? "OK" : "--",
+                 motorArmed ? "ON" : "OFF");
   display.printf("R%u P%u\n", receiverChannels[0], receiverChannels[1]);
   display.printf("Y%u T%u\n", receiverChannels[2], receiverChannels[3]);
-  display.printf("M1 D%u %uus", kEscMotor1Pin, motorOutputUs);
+  display.printf("M4 D%u %uus", kEscMotor4Pin, motorOutputUs);
   display.display();
 }
 
