@@ -54,7 +54,11 @@
       "board": "HK8B304 V1.0",
       "firmware": "BLHeli_S BL16.7",
       "protocol": "DShot300",
-      "status": "powered_tested"
+      "status": "powered_tested",
+      "battery_input_measured_v": 24.0,
+      "vcc_is_battery_voltage": true,
+      "motor_test": "M1 and M2 no rotation; ESC startup melody and slight twitch",
+      "safety_note": "Never connect ESC VCC to ESP32 power pins"
     },
     "battery": {
       "nominal_voltage_v": 24.0,
@@ -65,6 +69,13 @@
     "imu": {
       "model": "not_selected",
       "status": "required_before_flight"
+    },
+    "radio": {
+      "transmitter": "RadioMaster TX900",
+      "receiver": "RadioMaster RX900",
+      "binding": "paired",
+      "protocol": "not_confirmed",
+      "connection": "not connected"
     }
   },
   "safety": {
