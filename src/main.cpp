@@ -14,11 +14,19 @@ constexpr uint8_t kDisplayHeight = 64;
 constexpr uint8_t kHmc5883lAddress = 0x1E;
 constexpr uint8_t kQmc5883lAddress = 0x0D;
 constexpr uint8_t kEscMotor1Pin = 25;
-constexpr uint8_t kEscPwmChannel = 0;
+constexpr uint8_t kEscMotor2Pin = 26;
+constexpr uint8_t kEscMotor3Pin = 27;
+constexpr uint8_t kEscMotor4Pin = 14;
+constexpr uint8_t kEscMotorPins[] = {kEscMotor1Pin, kEscMotor2Pin, kEscMotor3Pin, kEscMotor4Pin};
+constexpr uint8_t kEscPwmChannels[] = {0, 1, 2, 3};
 constexpr uint32_t kEscPwmFrequency = 50;
 constexpr uint8_t kEscPwmResolution = 16;
 constexpr uint16_t kEscPwmSafeUs = 1000;
-constexpr uint16_t kEscPwmTestUs = 1100;
+constexpr uint16_t kEscPwmTestUs = 1150;
+constexpr uint16_t kEscPwmHighUs = 2000;
+constexpr uint16_t kEscRadioMaxUs = 1500;
+constexpr uint16_t kEscRadioIdleDeadbandUs = 15;
+constexpr unsigned long kReceiverTimeoutMs = 300;
 constexpr uint8_t kReceiverRxPin = 16;
 constexpr uint8_t kReceiverTxPin = 17;
 constexpr uint32_t kReceiverBaud = 420000;
@@ -34,6 +42,8 @@ unsigned long lastReceiverDisplayMs = 0;
 unsigned long escTestUntilMs = 0;
 uint16_t receiverChannels[4] = {992, 992, 992, 172};
 bool receiverSignalDetected = false;
+unsigned long lastReceiverFrameMs = 0;
+uint16_t motorOutputUs = kEscPwmSafeUs;
 uint8_t displaySdaPin = 5;
 uint8_t displaySclPin = 4;
 uint8_t displayAddress = 0x3C;
@@ -79,6 +89,7 @@ void updateReceiver() {
         }
       }
       receiverSignalDetected = true;
+      lastReceiverFrameMs = millis();
       Serial.printf("RC channels: %u %u %u %u\n", receiverChannels[0], receiverChannels[1],
                     receiverChannels[2], receiverChannels[3]);
     }
@@ -169,25 +180,61 @@ bool loadConfiguration() {
   return true;
 }
 
-void writeEscPwm(uint16_t pulseUs) {
+void writeEscPwm(uint8_t channel, uint16_t pulseUs) {
   const uint32_t duty = (static_cast<uint32_t>(pulseUs) * 65535UL) / 20000UL;
-  ledcWrite(kEscPwmChannel, duty);
+  ledcWrite(channel, duty);
 }
 
 void initializeEscSafeOutput() {
-  ledcSetup(kEscPwmChannel, kEscPwmFrequency, kEscPwmResolution);
-  ledcAttachPin(kEscMotor1Pin, kEscPwmChannel);
-  writeEscPwm(kEscPwmSafeUs);
-  Serial.printf("ESC M1 safe output: GPIO%u, PWM %u us\n", kEscMotor1Pin, kEscPwmSafeUs);
+  for (uint8_t index = 0; index < 4; ++index) {
+    ledcSetup(kEscPwmChannels[index], kEscPwmFrequency, kEscPwmResolution);
+    ledcAttachPin(kEscMotorPins[index], kEscPwmChannels[index]);
+    writeEscPwm(kEscPwmChannels[index], kEscPwmSafeUs);
+  }
+  Serial.printf("ESC M1-M4 safe PWM: GPIO%u, GPIO%u, GPIO%u, GPIO%u\n",
+                kEscMotor1Pin, kEscMotor2Pin, kEscMotor3Pin, kEscMotor4Pin);
 }
 
 void handleEscTest() {
-  if (Serial.available() > 0 && Serial.read() == 't') {
-    writeEscPwm(kEscPwmTestUs);
-    delay(1000);
-    writeEscPwm(kEscPwmSafeUs);
-    Serial.printf("ESC M1 test: PWM %u us, returned to %u us\n", kEscPwmTestUs, kEscPwmSafeUs);
+  if (Serial.available() > 0) {
+    const char command = Serial.read();
+    if (command == 'h') {
+      writeEscPwm(kEscPwmChannels[0], kEscPwmHighUs);
+      Serial.printf("ESC M1 calibration high: %u us\n", kEscPwmHighUs);
+      return;
+    }
+    if (command == 'l') {
+      writeEscPwm(kEscPwmChannels[0], kEscPwmSafeUs);
+      Serial.printf("ESC M1 calibration low: %u us\n", kEscPwmSafeUs);
+      return;
+    }
+    if (command != 't' && command != 'm') {
+      return;
+    }
+    const uint32_t durationMs = command == 'm' ? 60000UL : 1000UL;
+    writeEscPwm(kEscPwmChannels[3], kEscPwmTestUs);
+    delay(durationMs);
+    writeEscPwm(kEscPwmChannels[3], kEscPwmSafeUs);
+    Serial.printf("ESC M4 test: PWM %u us for %lu ms, returned to %u us\n",
+                  kEscPwmTestUs, durationMs, kEscPwmSafeUs);
   }
+}
+
+void updateMotorFromReceiver() {
+  const bool linkActive = receiverSignalDetected &&
+                          millis() - lastReceiverFrameMs <= kReceiverTimeoutMs;
+  if (!linkActive) {
+    motorOutputUs = kEscPwmSafeUs;
+  } else {
+    const uint16_t throttle = receiverChannels[2];
+    motorOutputUs = static_cast<uint16_t>(constrain(
+        map(throttle, 1811, 172, kEscPwmSafeUs, kEscRadioMaxUs),
+        static_cast<long>(kEscPwmSafeUs), static_cast<long>(kEscRadioMaxUs)));
+    if (motorOutputUs <= kEscPwmSafeUs + kEscRadioIdleDeadbandUs) {
+      motorOutputUs = kEscPwmSafeUs;
+    }
+  }
+  writeEscPwm(kEscPwmChannels[0], motorOutputUs);
 }
 
 bool initializeDisplay() {
@@ -223,7 +270,7 @@ void renderDisplay() {
   display.printf("RC:%s\n", receiverSignalDetected ? "OK" : "--");
   display.printf("R%u P%u\n", receiverChannels[0], receiverChannels[1]);
   display.printf("Y%u T%u\n", receiverChannels[2], receiverChannels[3]);
-  display.printf("M1 D%u", kEscMotor1Pin);
+  display.printf("M1 D%u %uus", kEscMotor1Pin, motorOutputUs);
   display.display();
 }
 
@@ -257,6 +304,7 @@ void loop() {
   const unsigned long nowMs = millis();
 
   updateReceiver();
+  updateMotorFromReceiver();
 
   if (nowMs - lastReceiverDisplayMs >= 100) {
     lastReceiverDisplayMs = nowMs;
