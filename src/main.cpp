@@ -3,7 +3,6 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <LittleFS.h>
-#include "driver/rmt.h"
 
 namespace {
 
@@ -15,8 +14,14 @@ constexpr uint8_t kDisplayHeight = 64;
 constexpr uint8_t kHmc5883lAddress = 0x1E;
 constexpr uint8_t kQmc5883lAddress = 0x0D;
 constexpr uint8_t kEscMotor1Pin = 25;
-constexpr rmt_channel_t kEscRmtChannel = RMT_CHANNEL_0;
-constexpr uint16_t kDshotThrottleTest = 300;
+constexpr uint8_t kEscPwmChannel = 0;
+constexpr uint32_t kEscPwmFrequency = 50;
+constexpr uint8_t kEscPwmResolution = 16;
+constexpr uint16_t kEscPwmSafeUs = 1000;
+constexpr uint16_t kEscPwmTestUs = 1100;
+constexpr uint8_t kReceiverRxPin = 16;
+constexpr uint8_t kReceiverTxPin = 17;
+constexpr uint32_t kReceiverBaud = 420000;
 
 bool configurationLoaded = false;
 bool displayDetected = false;
@@ -25,13 +30,61 @@ String i2cDevices = "none";
 bool statusLedOn = false;
 unsigned long lastStatusUpdateMs = 0;
 unsigned long lastHeartbeatMs = 0;
+unsigned long lastReceiverDisplayMs = 0;
 unsigned long escTestUntilMs = 0;
-unsigned long lastDshotMs = 0;
+uint16_t receiverChannels[4] = {992, 992, 992, 172};
+bool receiverSignalDetected = false;
 uint8_t displaySdaPin = 5;
 uint8_t displaySclPin = 4;
 uint8_t displayAddress = 0x3C;
 float batteryNominalVoltage = 0.0F;
 Adafruit_SSD1306 display(kDisplayWidth, kDisplayHeight, &Wire, -1);
+HardwareSerial receiverSerial(2);
+
+void updateReceiver() {
+  static uint8_t frame[64];
+  static uint8_t frameSize = 0;
+
+  while (receiverSerial.available() > 0) {
+    const uint8_t value = receiverSerial.read();
+    if (frameSize == 0) {
+      frame[frameSize++] = value;
+      continue;
+    }
+    if (frameSize == 1) {
+      if (value < 2 || value > 62) {
+        frameSize = 0;
+        continue;
+      }
+      frame[frameSize++] = value;
+      continue;
+    }
+    frame[frameSize++] = value;
+    if (frameSize < static_cast<uint8_t>(frame[1]) + 2) {
+      continue;
+    }
+
+    if (frame[2] == 0x16 && frame[1] >= 23) {
+      const uint8_t* payload = &frame[3];
+      uint32_t bits = 0;
+      uint8_t bitCount = 0;
+      uint8_t channelIndex = 0;
+      for (uint8_t index = 0; index < 22 && channelIndex < 4; ++index) {
+        bits |= static_cast<uint32_t>(payload[index]) << bitCount;
+        bitCount += 8;
+        while (bitCount >= 11 && channelIndex < 4) {
+          receiverChannels[channelIndex++] = bits & 0x07FF;
+          bits >>= 11;
+          bitCount -= 11;
+        }
+      }
+      receiverSignalDetected = true;
+      Serial.printf("RC channels: %u %u %u %u\n", receiverChannels[0], receiverChannels[1],
+                    receiverChannels[2], receiverChannels[3]);
+    }
+    frameSize = 0;
+  }
+}
 
 bool deviceResponds(uint8_t address) {
   Wire.beginTransmission(address);
@@ -116,67 +169,24 @@ bool loadConfiguration() {
   return true;
 }
 
-void sendDshotPacket(uint16_t throttle) {
-  const uint16_t value = (throttle << 1);
-  uint16_t checksum = value;
-  uint16_t packet = (value << 4) | (checksum ^ (checksum >> 4) ^ (checksum >> 8)) & 0x0F;
-  rmt_item32_t items[16] = {};
-
-  for (uint8_t bit = 0; bit < 16; ++bit) {
-    const bool one = packet & (1U << (15 - bit));
-    items[bit].level0 = 1;
-    items[bit].duration0 = one ? 178 : 89;
-    items[bit].level1 = 0;
-    items[bit].duration1 = one ? 89 : 178;
-  }
-  rmt_write_items(kEscRmtChannel, items, 16, true);
+void writeEscPwm(uint16_t pulseUs) {
+  const uint32_t duty = (static_cast<uint32_t>(pulseUs) * 65535UL) / 20000UL;
+  ledcWrite(kEscPwmChannel, duty);
 }
 
 void initializeEscSafeOutput() {
-  rmt_config_t config = {};
-  config.rmt_mode = RMT_MODE_TX;
-  config.channel = kEscRmtChannel;
-  config.gpio_num = static_cast<gpio_num_t>(kEscMotor1Pin);
-  config.clk_div = 1;
-  config.mem_block_num = 1;
-  config.tx_config.loop_en = false;
-  config.tx_config.carrier_en = false;
-  config.tx_config.idle_output_en = true;
-  config.tx_config.idle_level = RMT_IDLE_LEVEL_LOW;
-  rmt_config(&config);
-  rmt_driver_install(kEscRmtChannel, 0, 0);
-  for (uint8_t index = 0; index < 100; ++index) {
-    sendDshotPacket(0);
-    delay(1);
-  }
-  Serial.printf("ESC M1 safe output: GPIO%u, DShot300\n", kEscMotor1Pin);
-}
-
-void sendDshotThrottle(uint16_t throttle) {
-  for (uint16_t index = 0; index < 1000; ++index) {
-    sendDshotPacket(throttle);
-    delay(1);
-  }
+  ledcSetup(kEscPwmChannel, kEscPwmFrequency, kEscPwmResolution);
+  ledcAttachPin(kEscMotor1Pin, kEscPwmChannel);
+  writeEscPwm(kEscPwmSafeUs);
+  Serial.printf("ESC M1 safe output: GPIO%u, PWM %u us\n", kEscMotor1Pin, kEscPwmSafeUs);
 }
 
 void handleEscTest() {
-  const unsigned long nowMs = millis();
-
-  if (escTestUntilMs == 0 && nowMs - lastDshotMs >= 1) {
-    lastDshotMs = nowMs;
-    sendDshotPacket(0);
-  }
-
   if (Serial.available() > 0 && Serial.read() == 't') {
-    sendDshotThrottle(kDshotThrottleTest);
-    escTestUntilMs = nowMs;
-    Serial.printf("ESC M1 test: DShot300 throttle %u\n", kDshotThrottleTest);
-  }
-
-  if (escTestUntilMs != 0) {
-    sendDshotPacket(0);
-    escTestUntilMs = 0;
-    Serial.println("ESC M1 returned to zero");
+    writeEscPwm(kEscPwmTestUs);
+    delay(1000);
+    writeEscPwm(kEscPwmSafeUs);
+    Serial.printf("ESC M1 test: PWM %u us, returned to %u us\n", kEscPwmTestUs, kEscPwmSafeUs);
   }
 }
 
@@ -208,12 +218,12 @@ void renderDisplay() {
   display.println("FIPIK FC | SAFE");
   display.drawFastHLine(0, 9, kDisplayWidth, SSD1306_WHITE);
   display.setCursor(0, 14);
-  display.printf("BAT: %.1f V\n", batteryNominalVoltage);
   display.printf("I2C: %s\n", i2cDevices.c_str());
   display.printf("MAG: %s\n", magnetometerModel);
-  display.println("ESC: DSHOT SAFE");
-  display.printf("M1: D%u 0", kEscMotor1Pin);
-  display.printf("CFG: %s", configurationLoaded ? "OK" : "ERROR");
+  display.printf("RC:%s\n", receiverSignalDetected ? "OK" : "--");
+  display.printf("R%u P%u\n", receiverChannels[0], receiverChannels[1]);
+  display.printf("Y%u T%u\n", receiverChannels[2], receiverChannels[3]);
+  display.printf("M1 D%u", kEscMotor1Pin);
   display.display();
 }
 
@@ -221,6 +231,7 @@ void renderDisplay() {
 
 void setup() {
   Serial.begin(115200);
+  receiverSerial.begin(kReceiverBaud, SERIAL_8N1, kReceiverRxPin, kReceiverTxPin);
   pinMode(kStatusLedPin, OUTPUT);
   digitalWrite(kStatusLedPin, LOW);
   delay(300);
@@ -244,6 +255,15 @@ void setup() {
 
 void loop() {
   const unsigned long nowMs = millis();
+
+  updateReceiver();
+
+  if (nowMs - lastReceiverDisplayMs >= 100) {
+    lastReceiverDisplayMs = nowMs;
+    if (displayDetected) {
+      renderDisplay();
+    }
+  }
 
   handleEscTest();
 
