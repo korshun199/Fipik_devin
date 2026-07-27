@@ -24,7 +24,9 @@ constexpr uint8_t kEscPwmResolution = 16;
 constexpr uint16_t kEscPwmSafeUs = 1000;
 constexpr uint16_t kEscPwmTestUs = 1150;
 constexpr uint16_t kEscPwmHighUs = 2000;
-constexpr uint16_t kEscRadioMaxUs = 1150;
+constexpr uint16_t kEscRadioMaxUs = 1380;
+constexpr uint16_t kEscRadioStartUs = 1140;
+constexpr uint16_t kThrottleStartInput = 1600;
 constexpr uint16_t kEscRadioIdleDeadbandUs = 15;
 constexpr uint8_t kArmChannelIndex = 3;
 constexpr uint16_t kArmThreshold = 1000;
@@ -231,9 +233,17 @@ void updateMotorFromReceiver() {
     motorOutputUs = kEscPwmSafeUs;
   } else {
     const uint16_t throttle = receiverChannels[2];
+    long mappedOutput = 0;
+    if (throttle >= kThrottleStartInput) {
+      mappedOutput = map(throttle, 1811, kThrottleStartInput,
+                         kEscPwmSafeUs, kEscRadioStartUs);
+    } else {
+      mappedOutput = map(throttle, kThrottleStartInput, 172,
+                         kEscRadioStartUs, kEscRadioMaxUs);
+    }
     motorOutputUs = static_cast<uint16_t>(constrain(
-        map(throttle, 1811, 172, kEscPwmSafeUs, kEscRadioMaxUs),
-        static_cast<long>(kEscPwmSafeUs), static_cast<long>(kEscRadioMaxUs)));
+        mappedOutput, static_cast<long>(kEscPwmSafeUs),
+        static_cast<long>(kEscRadioMaxUs)));
     if (motorOutputUs <= kEscPwmSafeUs + kEscRadioIdleDeadbandUs) {
       motorOutputUs = kEscPwmSafeUs;
     }
