@@ -65,7 +65,7 @@
     "pitch_channel": 1,
     "throttle_channel": 2,
     "yaw_channel": 3,
-    "arm_channel": 3,
+    "arm_channel": 4,
     "roll_reverse": false,
     "pitch_reverse": false,
     "center": 992,
