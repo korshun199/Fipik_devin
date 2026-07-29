@@ -54,6 +54,8 @@ uint8_t rollChannelIndex = 0;
 uint8_t pitchChannelIndex = 1;
 uint8_t throttleChannelIndex = 2;
 uint8_t armChannelIndex = 3;
+bool armRequiresZeroThrottle = true;
+uint16_t armThrottleMax = 475;
 bool rollInputReverse = false;
 bool pitchInputReverse = false;
 uint16_t receiverCenter = 992;
@@ -229,6 +231,8 @@ bool loadConfiguration() {
   pitchChannelIndex = radio["pitch_channel"] | pitchChannelIndex;
   throttleChannelIndex = radio["throttle_channel"] | throttleChannelIndex;
   armChannelIndex = radio["arm_channel"] | armChannelIndex;
+  armRequiresZeroThrottle = config["safety"]["arm_requires_zero_throttle"] | armRequiresZeroThrottle;
+  armThrottleMax = config["safety"]["arm_throttle_max"] | armThrottleMax;
   rollInputReverse = radio["roll_reverse"] | rollInputReverse;
   pitchInputReverse = radio["pitch_reverse"] | pitchInputReverse;
   receiverCenter = radio["center"] | receiverCenter;
@@ -352,7 +356,10 @@ void handleEscTest() {
 void updateMotorFromReceiver() {
   const bool linkActive = receiverSignalDetected &&
                           millis() - lastReceiverFrameMs <= kReceiverTimeoutMs;
-  motorArmed = motorOutputEnabled && linkActive && receiverChannels[armChannelIndex] > kArmThreshold;
+  const bool throttleSafe = !armRequiresZeroThrottle ||
+                            receiverChannels[throttleChannelIndex] <= armThrottleMax;
+  motorArmed = motorOutputEnabled && linkActive && throttleSafe &&
+               receiverChannels[armChannelIndex] > kArmThreshold;
   int16_t rollCorrectionUs = 0;
   int16_t pitchCorrectionUs = 0;
   if (!motorArmed) {

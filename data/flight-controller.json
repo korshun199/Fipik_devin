@@ -99,6 +99,7 @@
   "safety": {
     "motor_output_enabled": true,
     "arm_requires_zero_throttle": true,
+    "arm_throttle_max": 475,
     "radio_timeout_ms": 300,
     "low_battery_disarm": true
   }
