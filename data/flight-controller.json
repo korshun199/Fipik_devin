@@ -49,7 +49,7 @@
     "firmware": "BLHeli_S BL16.7",
     "protocol": "pwm",
     "motor_signal_min_us": 1100,
-    "armed_idle_us": 1100,
+    "armed_idle_us": 1200,
     "motor_signal_start_us": 1140,
     "motor_signal_max_us": 1380,
     "control_level_percent": 20
@@ -99,7 +99,7 @@
   "safety": {
     "motor_output_enabled": true,
     "arm_requires_zero_throttle": true,
-    "arm_throttle_max": 475,
+    "arm_throttle_max": 435,
     "radio_timeout_ms": 300,
     "low_battery_disarm": true
   }
