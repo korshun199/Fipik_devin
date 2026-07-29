@@ -34,7 +34,7 @@ unsigned long lastStatusUpdateMs = 0;
 unsigned long lastHeartbeatMs = 0;
 unsigned long lastReceiverDisplayMs = 0;
 unsigned long escTestUntilMs = 0;
-uint16_t receiverChannels[4] = {992, 992, 992, 172};
+uint16_t receiverChannels[16] = {992};
 bool receiverSignalDetected = false;
 unsigned long lastReceiverFrameMs = 0;
 unsigned long lastReceiverLogMs = 0;
@@ -58,6 +58,7 @@ uint16_t receiverCenter = 992;
 uint16_t receiverInputMin = 172;
 uint16_t receiverInputMax = 1811;
 uint16_t escSignalMinUs = 1000;
+uint16_t escArmedIdleUs = 1000;
 uint16_t escSignalStartUs = 1140;
 uint16_t escSignalMaxUs = 1380;
 uint8_t controlLevelPercent = 20;
@@ -110,10 +111,10 @@ void updateReceiver() {
       uint32_t bits = 0;
       uint8_t bitCount = 0;
       uint8_t channelIndex = 0;
-      for (uint8_t index = 0; index < 22 && channelIndex < 4; ++index) {
+      for (uint8_t index = 0; index < 22 && channelIndex < 16; ++index) {
         bits |= static_cast<uint32_t>(payload[index]) << bitCount;
         bitCount += 8;
-        while (bitCount >= 11 && channelIndex < 4) {
+        while (bitCount >= 11 && channelIndex < 16) {
           receiverChannels[channelIndex++] = bits & 0x07FF;
           bits >>= 11;
           bitCount -= 11;
@@ -124,8 +125,11 @@ void updateReceiver() {
       const unsigned long nowMs = millis();
       if (nowMs - lastReceiverLogMs >= 500) {
         lastReceiverLogMs = nowMs;
-        Serial.printf("RC channels: %u %u %u %u\n", receiverChannels[0], receiverChannels[1],
-                      receiverChannels[2], receiverChannels[3]);
+        Serial.print("RC channels:");
+        for (uint8_t index = 0; index < 16; ++index) {
+          Serial.printf(" %u", receiverChannels[index]);
+        }
+        Serial.println();
       }
     }
     frameSize = 0;
@@ -205,6 +209,7 @@ bool loadConfiguration() {
 
   JsonObject esc = config["esc"];
   escSignalMinUs = esc["motor_signal_min_us"] | escSignalMinUs;
+  escArmedIdleUs = esc["armed_idle_us"] | escArmedIdleUs;
   escSignalStartUs = esc["motor_signal_start_us"] | escSignalStartUs;
   escSignalMaxUs = esc["motor_signal_max_us"] | escSignalMaxUs;
   controlLevelPercent = esc["control_level_percent"] | controlLevelPercent;
@@ -305,19 +310,13 @@ void updateMotorFromReceiver() {
     motorOutputUs = kEscPwmSafeUs;
   } else {
     const uint16_t throttle = receiverChannels[throttleChannelIndex];
-    long mappedOutput = 0;
-    if (throttle >= 1600) {
-      mappedOutput = map(throttle, receiverInputMax, 1600,
-                         escSignalMinUs, escSignalStartUs);
-    } else {
-      mappedOutput = map(throttle, 1600, receiverInputMin,
-                         escSignalStartUs, escSignalMaxUs);
-    }
+    const long mappedOutput = map(throttle, receiverInputMin, receiverInputMax,
+                                  escSignalMinUs, escSignalMaxUs);
     motorOutputUs = static_cast<uint16_t>(constrain(
         mappedOutput, static_cast<long>(escSignalMinUs),
         static_cast<long>(escSignalMaxUs)));
     if (motorOutputUs <= kEscPwmSafeUs + kEscRadioIdleDeadbandUs) {
-      motorOutputUs = kEscPwmSafeUs;
+      motorOutputUs = escArmedIdleUs;
     }
 
     if (mixerEnabled && motorOutputUs > kEscPwmSafeUs + kEscRadioIdleDeadbandUs) {
@@ -379,7 +378,8 @@ void renderDisplay() {
                  motorArmed ? "ON" : "OFF");
   display.printf("R%u P%u\n", receiverChannels[0], receiverChannels[1]);
   display.printf("Y%u T%u\n", receiverChannels[2], receiverChannels[3]);
-  display.printf("M4 D%u %uus", kEscMotorPins[3], motorOutputUs);
+  display.printf("ARM:%s CH5:%u", motorArmed ? "ON" : "OFF",
+                 receiverChannels[armChannelIndex]);
   display.display();
 }
 
