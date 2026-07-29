@@ -32,9 +32,8 @@
       "display": {
         "model": "SSD1306",
         "resolution_px": "128x64",
-        "i2c_sda_gpio": 21,
-        "i2c_scl_gpio": 22,
-        "i2c_address": "0x3C"
+        "i2c_address": "0x3C",
+        "pin_source": "data/flight-controller.json -> pins.i2c.display_sda/display_scl"
       }
     },
     "magnetometer": {
@@ -44,9 +43,8 @@
       "detected_chip": "QMC5883L",
       "i2c_address": "0x0D",
       "physical_wiring": {
-        "module_sda_to_esp_gpio": 21,
-        "module_scl_to_esp_gpio": 22,
-        "note": "Стандартная распиновка подтверждена сканером I2C"
+        "pin_source": "data/flight-controller.json -> pins.i2c.sensor_sda/sensor_scl",
+        "note": "Пины не дублируются в паспорте проекта"
       }
     },
     "esc": {

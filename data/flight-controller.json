@@ -3,6 +3,32 @@
     "name": "Fipik-01",
     "frame": "quad_x"
   },
+  "pins": {
+    "i2c": {
+      "display_sda": 21,
+      "display_scl": 22,
+      "sensor_sda": 5,
+      "sensor_scl": 4,
+      "note": "OLED встроен на GPIO21/22; MPU6050 и GY-271 подключены параллельно на D5/D4"
+    },
+    "esc": {
+      "M1": 25,
+      "M2": 26,
+      "M3": 27,
+      "M4": 14
+    },
+    "receiver_rx900": {
+      "rx": 16,
+      "tx": 17,
+      "baud": 420000,
+      "note": "RX900 TX -> ESP32 RX2/GPIO16; RX900 RX -> ESP32 TX2/GPIO17"
+    },
+    "video": {
+      "camera_to_vtx": "analog video, not ESP32 GPIO",
+      "vtx_data_to_esp32": null,
+      "note": "NICE-2.0W video is not connected to ESP32"
+    }
+  },
   "battery": {
     "chemistry": "unknown",
     "nominal_voltage_v": 24.0,
@@ -15,30 +41,51 @@
     "model": "HAKRC 4-in-1 45A",
     "board": "HK8B304 V1.0",
     "firmware": "BLHeli_S BL16.7",
-    "protocol": "dshot300",
-    "motor_pins": [25, 26, 27, 14]
+    "protocol": "pwm",
+    "motor_signal_min_us": 1000,
+    "motor_signal_start_us": 1140,
+    "motor_signal_max_us": 1380,
+    "control_level_percent": 20
+  },
+  "motors": [
+    {"name": "M1", "position": "rear_right", "rotation": "clockwise", "roll": "decrease", "pitch": "increase"},
+    {"name": "M2", "position": "front_right", "rotation": "counterclockwise", "roll": "decrease", "pitch": "decrease"},
+    {"name": "M3", "position": "rear_left", "rotation": "counterclockwise", "roll": "increase", "pitch": "increase"},
+    {"name": "M4", "position": "front_left", "rotation": "clockwise", "roll": "increase", "pitch": "decrease"}
+  ],
+  "radio": {
+    "roll_channel": 0,
+    "pitch_channel": 1,
+    "throttle_channel": 2,
+    "arm_channel": 3,
+    "roll_reverse": true,
+    "pitch_reverse": true,
+    "center": 992,
+    "input_min": 172,
+    "input_max": 1811
   },
   "display": {
     "model": "SSD1306",
     "width_px": 128,
     "height_px": 64,
-    "i2c_sda_pin": 21,
-    "i2c_scl_pin": 22,
     "i2c_address": 60
   },
   "sensors": {
     "magnetometer": {
       "model": "GY-271",
-      "i2c_sda_pin": 21,
-      "i2c_scl_pin": 22,
       "i2c_address": 13,
       "detected_chip": "QMC5883L",
-      "physical_module_sda_pin": 21,
-      "physical_module_scl_pin": 22,
-      "wiring_note": "Стандартная распиновка SDA/SCL"
+      "wiring_note": "Подключён к общей I2C-шине из раздела pins"
     },
     "imu": {
-      "model": "not_installed"
+      "model": "MPU6050",
+      "i2c_address": 104,
+      "wiring_note": "Параллельно GY-271: SDA из pins.i2c.sensor_sda, SCL из pins.i2c.sensor_scl"
+    },
+    "barometer": {
+      "model": "optional_not_required",
+      "i2c_address": null,
+      "wiring_note": "Для текущего ручного полёта не нужен"
     }
   },
   "safety": {

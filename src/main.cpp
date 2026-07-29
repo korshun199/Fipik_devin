@@ -13,29 +13,19 @@ constexpr uint8_t kDisplayWidth = 128;
 constexpr uint8_t kDisplayHeight = 64;
 constexpr uint8_t kHmc5883lAddress = 0x1E;
 constexpr uint8_t kQmc5883lAddress = 0x0D;
-constexpr uint8_t kEscMotor1Pin = 25;
-constexpr uint8_t kEscMotor2Pin = 26;
-constexpr uint8_t kEscMotor3Pin = 27;
-constexpr uint8_t kEscMotor4Pin = 14;
-constexpr uint8_t kEscMotorPins[] = {kEscMotor1Pin, kEscMotor2Pin, kEscMotor3Pin, kEscMotor4Pin};
+uint8_t kEscMotorPins[] = {25, 26, 27, 14};
 constexpr uint8_t kEscPwmChannels[] = {0, 1, 2, 3};
 constexpr uint32_t kEscPwmFrequency = 50;
 constexpr uint8_t kEscPwmResolution = 16;
 constexpr uint16_t kEscPwmSafeUs = 1000;
 constexpr uint16_t kEscPwmTestUs = 1150;
 constexpr uint16_t kEscPwmHighUs = 2000;
-constexpr uint16_t kEscRadioMaxUs = 1380;
-constexpr uint16_t kEscRadioStartUs = 1140;
-constexpr uint16_t kThrottleStartInput = 1600;
 constexpr uint16_t kEscRadioIdleDeadbandUs = 15;
-constexpr uint8_t kArmChannelIndex = 3;
 constexpr uint16_t kArmThreshold = 1000;
 constexpr unsigned long kReceiverTimeoutMs = 300;
-constexpr uint8_t kReceiverRxPin = 16;
-constexpr uint8_t kReceiverTxPin = 17;
-constexpr uint32_t kReceiverBaud = 420000;
 
 bool configurationLoaded = false;
+bool motorOutputEnabled = false;
 bool displayDetected = false;
 const char* magnetometerModel = "not found";
 String i2cDevices = "none";
@@ -47,14 +37,50 @@ unsigned long escTestUntilMs = 0;
 uint16_t receiverChannels[4] = {992, 992, 992, 172};
 bool receiverSignalDetected = false;
 unsigned long lastReceiverFrameMs = 0;
+unsigned long lastReceiverLogMs = 0;
 uint16_t motorOutputUs = kEscPwmSafeUs;
 bool motorArmed = false;
 uint8_t displaySdaPin = 5;
 uint8_t displaySclPin = 4;
+uint8_t sensorSdaPin = 5;
+uint8_t sensorSclPin = 4;
 uint8_t displayAddress = 0x3C;
+uint8_t receiverRxPin = 16;
+uint8_t receiverTxPin = 17;
+uint32_t receiverBaud = 420000;
+uint8_t rollChannelIndex = 0;
+uint8_t pitchChannelIndex = 1;
+uint8_t throttleChannelIndex = 2;
+uint8_t armChannelIndex = 3;
+bool rollInputReverse = false;
+bool pitchInputReverse = false;
+uint16_t receiverCenter = 992;
+uint16_t receiverInputMin = 172;
+uint16_t receiverInputMax = 1811;
+uint16_t escSignalMinUs = 1000;
+uint16_t escSignalStartUs = 1140;
+uint16_t escSignalMaxUs = 1380;
+uint8_t controlLevelPercent = 20;
+bool mixerEnabled = true;
+int16_t rollAuthorityUs = 76;
+int16_t pitchAuthorityUs = 76;
+int8_t motorRollSign[4] = {-1, -1, 1, 1};
+int8_t motorPitchSign[4] = {1, -1, 1, -1};
 float batteryNominalVoltage = 0.0F;
 Adafruit_SSD1306 display(kDisplayWidth, kDisplayHeight, &Wire, -1);
 HardwareSerial receiverSerial(2);
+TwoWire sensorWire(1);
+
+int8_t readDirection(JsonVariantConst value, int8_t fallback) {
+  const char* direction = value | "";
+  if (strcmp(direction, "increase") == 0) {
+    return 1;
+  }
+  if (strcmp(direction, "decrease") == 0) {
+    return -1;
+  }
+  return fallback;
+}
 
 void updateReceiver() {
   static uint8_t frame[64];
@@ -95,49 +121,53 @@ void updateReceiver() {
       }
       receiverSignalDetected = true;
       lastReceiverFrameMs = millis();
-      Serial.printf("RC channels: %u %u %u %u\n", receiverChannels[0], receiverChannels[1],
-                    receiverChannels[2], receiverChannels[3]);
+      const unsigned long nowMs = millis();
+      if (nowMs - lastReceiverLogMs >= 500) {
+        lastReceiverLogMs = nowMs;
+        Serial.printf("RC channels: %u %u %u %u\n", receiverChannels[0], receiverChannels[1],
+                      receiverChannels[2], receiverChannels[3]);
+      }
     }
     frameSize = 0;
   }
 }
 
-bool deviceResponds(uint8_t address) {
-  Wire.beginTransmission(address);
-  return Wire.endTransmission() == 0;
+bool deviceResponds(TwoWire& bus, uint8_t address) {
+  bus.beginTransmission(address);
+  return bus.endTransmission() == 0;
 }
 
-bool scanI2cBus() {
+bool scanI2cBus(TwoWire& bus, String& devices, uint8_t expectedAddress) {
   bool expectedDeviceFound = false;
   bool anyDeviceFound = false;
-  i2cDevices = "";
+  devices = "";
 
   for (uint8_t address = 1; address < 127; ++address) {
-    if (deviceResponds(address)) {
+    if (deviceResponds(bus, address)) {
       Serial.printf("I2C device found at 0x%02X\n", address);
       anyDeviceFound = true;
-      expectedDeviceFound = expectedDeviceFound || address == displayAddress;
-      if (i2cDevices.length() > 0) {
-        i2cDevices += " ";
+      expectedDeviceFound = expectedDeviceFound || address == expectedAddress;
+      if (devices.length() > 0) {
+        devices += " ";
       }
       char addressText[3];
       snprintf(addressText, sizeof(addressText), "%02X", address);
-      i2cDevices += addressText;
+      devices += addressText;
     }
   }
 
   if (!anyDeviceFound) {
     Serial.println("No I2C devices found.");
-    i2cDevices = "none";
+    devices = "none";
   }
 
   return expectedDeviceFound;
 }
 
 void detectMagnetometer() {
-  if (deviceResponds(kHmc5883lAddress)) {
+  if (deviceResponds(sensorWire, kHmc5883lAddress)) {
     magnetometerModel = "HMC5883L";
-  } else if (deviceResponds(kQmc5883lAddress)) {
+  } else if (deviceResponds(sensorWire, kQmc5883lAddress)) {
     magnetometerModel = "QMC5883L";
   }
 
@@ -162,10 +192,48 @@ bool loadConfiguration() {
 
   const float nominalVoltage = config["battery"]["nominal_voltage_v"] | 0.0F;
   const unsigned long capacityMah = config["battery"]["capacity_mah"] | 0UL;
-  const bool motorOutputEnabled = config["safety"]["motor_output_enabled"] | false;
-  displaySdaPin = config["display"]["i2c_sda_pin"] | displaySdaPin;
-  displaySclPin = config["display"]["i2c_scl_pin"] | displaySclPin;
+  motorOutputEnabled = config["safety"]["motor_output_enabled"] | false;
+  JsonObject pins = config["pins"];
+  displaySdaPin = pins["i2c"]["display_sda"] | displaySdaPin;
+  displaySclPin = pins["i2c"]["display_scl"] | displaySclPin;
+  sensorSdaPin = pins["i2c"]["sensor_sda"] | sensorSdaPin;
+  sensorSclPin = pins["i2c"]["sensor_scl"] | sensorSclPin;
   displayAddress = config["display"]["i2c_address"] | displayAddress;
+  receiverRxPin = pins["receiver_rx900"]["rx"] | receiverRxPin;
+  receiverTxPin = pins["receiver_rx900"]["tx"] | receiverTxPin;
+  receiverBaud = pins["receiver_rx900"]["baud"] | receiverBaud;
+
+  JsonObject esc = config["esc"];
+  escSignalMinUs = esc["motor_signal_min_us"] | escSignalMinUs;
+  escSignalStartUs = esc["motor_signal_start_us"] | escSignalStartUs;
+  escSignalMaxUs = esc["motor_signal_max_us"] | escSignalMaxUs;
+  controlLevelPercent = esc["control_level_percent"] | controlLevelPercent;
+  rollAuthorityUs = static_cast<int16_t>((escSignalMaxUs - escSignalMinUs) *
+                                         controlLevelPercent / 100U);
+  pitchAuthorityUs = rollAuthorityUs;
+
+  JsonObject radio = config["radio"];
+  rollChannelIndex = radio["roll_channel"] | rollChannelIndex;
+  pitchChannelIndex = radio["pitch_channel"] | pitchChannelIndex;
+  throttleChannelIndex = radio["throttle_channel"] | throttleChannelIndex;
+  armChannelIndex = radio["arm_channel"] | armChannelIndex;
+  rollInputReverse = radio["roll_reverse"] | rollInputReverse;
+  pitchInputReverse = radio["pitch_reverse"] | pitchInputReverse;
+  receiverCenter = radio["center"] | receiverCenter;
+  receiverInputMin = radio["input_min"] | receiverInputMin;
+  receiverInputMax = radio["input_max"] | receiverInputMax;
+
+  JsonArray motors = config["motors"];
+  for (uint8_t index = 0; index < 4; ++index) {
+    JsonObject motor = motors[index];
+    const char* motorName = motor["name"] | "";
+    if (strcmp(motorName, "M1") == 0) kEscMotorPins[index] = pins["esc"]["M1"] | kEscMotorPins[index];
+    if (strcmp(motorName, "M2") == 0) kEscMotorPins[index] = pins["esc"]["M2"] | kEscMotorPins[index];
+    if (strcmp(motorName, "M3") == 0) kEscMotorPins[index] = pins["esc"]["M3"] | kEscMotorPins[index];
+    if (strcmp(motorName, "M4") == 0) kEscMotorPins[index] = pins["esc"]["M4"] | kEscMotorPins[index];
+    motorRollSign[index] = readDirection(motor["roll"], motorRollSign[index]);
+    motorPitchSign[index] = readDirection(motor["pitch"], motorPitchSign[index]);
+  }
 
   if (nominalVoltage <= 0.0F || capacityMah == 0) {
     Serial.println("Battery configuration is incomplete.");
@@ -177,6 +245,8 @@ bool loadConfiguration() {
   Serial.printf("Battery: %.1f V, %lu mAh\n", nominalVoltage, capacityMah);
   Serial.printf("ESC: %s\n", config["esc"]["model"] | "unknown");
   Serial.printf("Motor output: %s\n", motorOutputEnabled ? "enabled" : "disabled");
+  Serial.printf("Mixer: %s, level=%u%%\n", mixerEnabled ? "quad X" : "off",
+                controlLevelPercent);
 
   if (motorOutputEnabled) {
     Serial.println("Motor output is not implemented in this prototype.");
@@ -197,7 +267,7 @@ void initializeEscSafeOutput() {
     writeEscPwm(kEscPwmChannels[index], kEscPwmSafeUs);
   }
   Serial.printf("ESC M1-M4 safe PWM: GPIO%u, GPIO%u, GPIO%u, GPIO%u\n",
-                kEscMotor1Pin, kEscMotor2Pin, kEscMotor3Pin, kEscMotor4Pin);
+                kEscMotorPins[0], kEscMotorPins[1], kEscMotorPins[2], kEscMotorPins[3]);
 }
 
 void handleEscTest() {
@@ -228,27 +298,51 @@ void handleEscTest() {
 void updateMotorFromReceiver() {
   const bool linkActive = receiverSignalDetected &&
                           millis() - lastReceiverFrameMs <= kReceiverTimeoutMs;
-  motorArmed = linkActive && receiverChannels[kArmChannelIndex] > kArmThreshold;
+  motorArmed = motorOutputEnabled && linkActive && receiverChannels[armChannelIndex] > kArmThreshold;
+  int16_t rollCorrectionUs = 0;
+  int16_t pitchCorrectionUs = 0;
   if (!motorArmed) {
     motorOutputUs = kEscPwmSafeUs;
   } else {
-    const uint16_t throttle = receiverChannels[2];
+    const uint16_t throttle = receiverChannels[throttleChannelIndex];
     long mappedOutput = 0;
-    if (throttle >= kThrottleStartInput) {
-      mappedOutput = map(throttle, 1811, kThrottleStartInput,
-                         kEscPwmSafeUs, kEscRadioStartUs);
+    if (throttle >= 1600) {
+      mappedOutput = map(throttle, receiverInputMax, 1600,
+                         escSignalMinUs, escSignalStartUs);
     } else {
-      mappedOutput = map(throttle, kThrottleStartInput, 172,
-                         kEscRadioStartUs, kEscRadioMaxUs);
+      mappedOutput = map(throttle, 1600, receiverInputMin,
+                         escSignalStartUs, escSignalMaxUs);
     }
     motorOutputUs = static_cast<uint16_t>(constrain(
-        mappedOutput, static_cast<long>(kEscPwmSafeUs),
-        static_cast<long>(kEscRadioMaxUs)));
+        mappedOutput, static_cast<long>(escSignalMinUs),
+        static_cast<long>(escSignalMaxUs)));
     if (motorOutputUs <= kEscPwmSafeUs + kEscRadioIdleDeadbandUs) {
       motorOutputUs = kEscPwmSafeUs;
     }
+
+    if (mixerEnabled && motorOutputUs > kEscPwmSafeUs + kEscRadioIdleDeadbandUs) {
+      const int16_t rollInput = static_cast<int16_t>(receiverChannels[rollChannelIndex]) -
+                                static_cast<int16_t>(receiverCenter);
+      const int16_t pitchInput = static_cast<int16_t>(receiverChannels[pitchChannelIndex]) -
+                                 static_cast<int16_t>(receiverCenter);
+      rollCorrectionUs = map(rollInputReverse ? -rollInput : rollInput,
+                             static_cast<int16_t>(receiverInputMin) - receiverCenter,
+                             static_cast<int16_t>(receiverInputMax) - receiverCenter,
+                             -rollAuthorityUs, rollAuthorityUs);
+      pitchCorrectionUs = map(pitchInputReverse ? -pitchInput : pitchInput,
+                              static_cast<int16_t>(receiverInputMin) - receiverCenter,
+                              static_cast<int16_t>(receiverInputMax) - receiverCenter,
+                              -pitchAuthorityUs, pitchAuthorityUs);
+    }
   }
-  writeEscPwm(kEscPwmChannels[3], motorOutputUs);
+  for (uint8_t motorIndex = 0; motorIndex < 4; ++motorIndex) {
+    int16_t mixedOutput = static_cast<int16_t>(motorOutputUs) +
+                          rollCorrectionUs * motorRollSign[motorIndex] +
+                          pitchCorrectionUs * motorPitchSign[motorIndex];
+    mixedOutput = constrain(mixedOutput, static_cast<int16_t>(kEscPwmSafeUs),
+                            static_cast<int16_t>(escSignalMaxUs));
+    writeEscPwm(kEscPwmChannels[motorIndex], static_cast<uint16_t>(mixedOutput));
+  }
 }
 
 bool initializeDisplay() {
@@ -256,7 +350,7 @@ bool initializeDisplay() {
   Wire.setClock(100000);
 
   Serial.printf("OLED I2C: SDA=%u, SCL=%u\n", displaySdaPin, displaySclPin);
-  displayDetected = scanI2cBus();
+  displayDetected = scanI2cBus(Wire, i2cDevices, displayAddress);
 
   if (!displayDetected) {
     Serial.printf("OLED was not found at 0x%02X.\n", displayAddress);
@@ -285,7 +379,7 @@ void renderDisplay() {
                  motorArmed ? "ON" : "OFF");
   display.printf("R%u P%u\n", receiverChannels[0], receiverChannels[1]);
   display.printf("Y%u T%u\n", receiverChannels[2], receiverChannels[3]);
-  display.printf("M4 D%u %uus", kEscMotor4Pin, motorOutputUs);
+  display.printf("M4 D%u %uus", kEscMotorPins[3], motorOutputUs);
   display.display();
 }
 
@@ -293,7 +387,7 @@ void renderDisplay() {
 
 void setup() {
   Serial.begin(115200);
-  receiverSerial.begin(kReceiverBaud, SERIAL_8N1, kReceiverRxPin, kReceiverTxPin);
+  receiverSerial.begin(receiverBaud, SERIAL_8N1, receiverRxPin, receiverTxPin);
   pinMode(kStatusLedPin, OUTPUT);
   digitalWrite(kStatusLedPin, LOW);
   delay(300);
@@ -306,6 +400,10 @@ void setup() {
 
   configurationLoaded = loadConfiguration();
   const bool oledInitialized = initializeDisplay();
+  sensorWire.begin(sensorSdaPin, sensorSclPin);
+  sensorWire.setClock(100000);
+  Serial.printf("Sensors I2C: SDA=%u, SCL=%u\n", sensorSdaPin, sensorSclPin);
+  scanI2cBus(sensorWire, i2cDevices, kQmc5883lAddress);
   detectMagnetometer();
   if (oledInitialized) {
     renderDisplay();
@@ -338,7 +436,8 @@ void loop() {
 
   if (configurationLoaded && nowMs - lastHeartbeatMs >= 5000) {
     lastHeartbeatMs = nowMs;
-    displayDetected = scanI2cBus();
+    displayDetected = scanI2cBus(Wire, i2cDevices, displayAddress);
+    scanI2cBus(sensorWire, i2cDevices, kQmc5883lAddress);
     detectMagnetometer();
     if (displayDetected) {
       renderDisplay();
