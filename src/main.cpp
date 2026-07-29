@@ -356,10 +356,14 @@ void handleEscTest() {
 void updateMotorFromReceiver() {
   const bool linkActive = receiverSignalDetected &&
                           millis() - lastReceiverFrameMs <= kReceiverTimeoutMs;
+  const bool armSwitchActive = receiverChannels[armChannelIndex] > kArmThreshold;
   const bool throttleSafe = !armRequiresZeroThrottle ||
-                            receiverChannels[throttleChannelIndex] <= armThrottleMax;
-  motorArmed = motorOutputEnabled && linkActive && throttleSafe &&
-               receiverChannels[armChannelIndex] > kArmThreshold;
+                            receiverChannels[throttleChannelIndex] < armThrottleMax;
+  if (!motorOutputEnabled || !linkActive || !armSwitchActive) {
+    motorArmed = false;
+  } else if (!motorArmed && throttleSafe) {
+    motorArmed = true;
+  }
   int16_t rollCorrectionUs = 0;
   int16_t pitchCorrectionUs = 0;
   if (!motorArmed) {
