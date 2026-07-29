@@ -6,7 +6,7 @@
   "wifi": {
     "mode": "access_point",
     "ssid": "Fipik-01",
-    "password": "fipik-config",
+    "password": "00000000",
     "address": "192.168.4.1"
   },
   "pins": {
