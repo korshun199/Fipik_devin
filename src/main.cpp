@@ -3,6 +3,8 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <LittleFS.h>
+#include <WiFi.h>
+#include <WebServer.h>
 
 namespace {
 
@@ -71,6 +73,9 @@ float batteryNominalVoltage = 0.0F;
 Adafruit_SSD1306 display(kDisplayWidth, kDisplayHeight, &Wire, -1);
 HardwareSerial receiverSerial(2);
 TwoWire sensorWire(1);
+WebServer webServer(80);
+String wifiSsid = "Fipik-01";
+String wifiPassword = "fipik-config";
 
 int8_t readDirection(JsonVariantConst value, int8_t fallback) {
   const char* direction = value | "";
@@ -197,6 +202,8 @@ bool loadConfiguration() {
   const float nominalVoltage = config["battery"]["nominal_voltage_v"] | 0.0F;
   const unsigned long capacityMah = config["battery"]["capacity_mah"] | 0UL;
   motorOutputEnabled = config["safety"]["motor_output_enabled"] | false;
+  wifiSsid = config["wifi"]["ssid"] | wifiSsid;
+  wifiPassword = config["wifi"]["password"] | wifiPassword;
   JsonObject pins = config["pins"];
   displaySdaPin = pins["i2c"]["display_sda"] | displaySdaPin;
   displaySclPin = pins["i2c"]["display_scl"] | displaySclPin;
@@ -258,6 +265,48 @@ bool loadConfiguration() {
   }
 
   return true;
+}
+
+void handleConfigGet() {
+  File configFile = LittleFS.open(kConfigPath, "r");
+  if (!configFile) {
+    webServer.send(500, "application/json", "{\"error\":\"config_missing\"}");
+    return;
+  }
+  webServer.streamFile(configFile, "application/json");
+  configFile.close();
+}
+
+void handleConfigPut() {
+  JsonDocument config;
+  const DeserializationError error = deserializeJson(config, webServer.arg("plain"));
+  if (error || !config.is<JsonObject>()) {
+    webServer.send(400, "application/json", "{\"error\":\"invalid_json\"}");
+    return;
+  }
+  File configFile = LittleFS.open(kConfigPath, "w");
+  if (!configFile) {
+    webServer.send(500, "application/json", "{\"error\":\"config_write_failed\"}");
+    return;
+  }
+  serializeJson(config, configFile);
+  configFile.close();
+  webServer.send(200, "application/json", "{\"saved\":true,\"restarting\":true}");
+  delay(300);
+  ESP.restart();
+}
+
+void initializeWifiApi() {
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP(wifiSsid.c_str(), wifiPassword.c_str());
+  webServer.on("/api/config", HTTP_GET, handleConfigGet);
+  webServer.on("/api/config", HTTP_PUT, handleConfigPut);
+  webServer.on("/api/health", HTTP_GET, []() {
+    webServer.send(200, "application/json", "{\"status\":\"ok\",\"device\":\"Fipik-01\"}");
+  });
+  webServer.begin();
+  Serial.printf("WiFi AP: %s, address: %s\n", wifiSsid.c_str(),
+                WiFi.softAPIP().toString().c_str());
 }
 
 void writeEscPwm(uint8_t channel, uint16_t pulseUs) {
@@ -410,6 +459,7 @@ void setup() {
     Serial.println("OLED status screen is ready.");
   }
   initializeEscSafeOutput();
+  initializeWifiApi();
   Serial.println("ESC output is limited to minimum throttle.");
 }
 
@@ -418,6 +468,7 @@ void loop() {
 
   updateReceiver();
   updateMotorFromReceiver();
+  webServer.handleClient();
 
   if (nowMs - lastReceiverDisplayMs >= 100) {
     lastReceiverDisplayMs = nowMs;

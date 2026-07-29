@@ -3,6 +3,12 @@
     "name": "Fipik-01",
     "frame": "quad_x"
   },
+  "wifi": {
+    "mode": "access_point",
+    "ssid": "Fipik-01",
+    "password": "fipik-config",
+    "address": "192.168.4.1"
+  },
   "pins": {
     "i2c": {
       "display_sda": 21,
@@ -43,6 +49,7 @@
     "firmware": "BLHeli_S BL16.7",
     "protocol": "pwm",
     "motor_signal_min_us": 1100,
+    "armed_idle_us": 1100,
     "motor_signal_start_us": 1140,
     "motor_signal_max_us": 1380,
     "control_level_percent": 20
@@ -57,9 +64,10 @@
     "roll_channel": 0,
     "pitch_channel": 1,
     "throttle_channel": 2,
+    "yaw_channel": 3,
     "arm_channel": 3,
-    "roll_reverse": true,
-    "pitch_reverse": true,
+    "roll_reverse": false,
+    "pitch_reverse": false,
     "center": 992,
     "input_min": 172,
     "input_max": 1811

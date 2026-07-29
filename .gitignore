@@ -1,4 +1,8 @@
 .pio/
+app/build/
+/build/
+.gradle/
+local.properties
 .vscode/
 *.log
 *.code-workspace
