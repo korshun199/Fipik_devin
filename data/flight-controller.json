@@ -66,7 +66,7 @@
     "throttle_channel": 2,
     "yaw_channel": 3,
     "arm_channel": 4,
-    "arm_on_value": 992,
+    "arm_on_value": 1811,
     "arm_value_tolerance": 100,
     "roll_reverse": false,
     "pitch_reverse": false,
