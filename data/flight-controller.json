@@ -55,10 +55,10 @@
     "control_level_percent": 20
   },
   "motors": [
-    {"name": "M1", "position": "rear_right", "rotation": "clockwise", "roll": "decrease", "pitch": "increase"},
-    {"name": "M2", "position": "front_right", "rotation": "counterclockwise", "roll": "decrease", "pitch": "decrease"},
-    {"name": "M3", "position": "rear_left", "rotation": "counterclockwise", "roll": "increase", "pitch": "increase"},
-    {"name": "M4", "position": "front_left", "rotation": "clockwise", "roll": "increase", "pitch": "decrease"}
+    {"name": "M1", "position": "rear_right", "rotation": "clockwise", "roll": "decrease", "pitch": "increase", "min_us": 1100, "max_us": 1380},
+    {"name": "M2", "position": "front_right", "rotation": "counterclockwise", "roll": "decrease", "pitch": "decrease", "min_us": 1100, "max_us": 1380},
+    {"name": "M3", "position": "rear_left", "rotation": "counterclockwise", "roll": "increase", "pitch": "increase", "min_us": 1100, "max_us": 1380},
+    {"name": "M4", "position": "front_left", "rotation": "clockwise", "roll": "increase", "pitch": "decrease", "min_us": 1100, "max_us": 1380}
   ],
   "radio": {
     "roll_channel": 0,

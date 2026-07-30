@@ -32,6 +32,15 @@ class MainActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var statusDot: TextView
 
+    private lateinit var m1Min: EditText
+    private lateinit var m1Max: EditText
+    private lateinit var m2Min: EditText
+    private lateinit var m2Max: EditText
+    private lateinit var m3Min: EditText
+    private lateinit var m3Max: EditText
+    private lateinit var m4Min: EditText
+    private lateinit var m4Max: EditText
+
     private val navy = Color.rgb(11, 18, 32)
     private val panel = Color.rgb(22, 32, 51)
     private val fieldColor = Color.rgb(31, 44, 67)
@@ -95,7 +104,40 @@ class MainActivity : Activity() {
         motorGrid.addView(maxSignal, gridParams(1))
         motors.addView(motorGrid, margin(0, 12, 0, 0))
         motors.addView(text("Винты перед проверкой снять. Изменения применяются после перезапуска ESP32.", 12f, textSecondary, Typeface.NORMAL), margin(0, 12, 0, 0))
-        content.addView(motors, margin(0, 0, 0, 16))
+        content.addView(motors, margin(0, 0, 0, 12))
+
+        val motorCalibration = card()
+        motorCalibration.addView(sectionTitle("КАЛИБРОВКА", "Индивидуальные пределы PWM"))
+        val m1Grid = grid()
+        m1Min = field("M1 Min, мкс", "1100")
+        m1Max = field("M1 Max, мкс", "1380")
+        m1Grid.addView(m1Min, gridParams(0))
+        m1Grid.addView(m1Max, gridParams(1))
+        motorCalibration.addView(m1Grid, margin(0, 8, 0, 0))
+
+        val m2Grid = grid()
+        m2Min = field("M2 Min, мкс", "1100")
+        m2Max = field("M2 Max, мкс", "1380")
+        m2Grid.addView(m2Min, gridParams(0))
+        m2Grid.addView(m2Max, gridParams(1))
+        motorCalibration.addView(m2Grid, margin(0, 8, 0, 0))
+
+        val m3Grid = grid()
+        m3Min = field("M3 Min, мкс", "1100")
+        m3Max = field("M3 Max, мкс", "1380")
+        m3Grid.addView(m3Min, gridParams(0))
+        m3Grid.addView(m3Max, gridParams(1))
+        motorCalibration.addView(m3Grid, margin(0, 8, 0, 0))
+
+        val m4Grid = grid()
+        m4Min = field("M4 Min, мкс", "1100")
+        m4Max = field("M4 Max, мкс", "1380")
+        m4Grid.addView(m4Min, gridParams(0))
+        m4Grid.addView(m4Max, gridParams(1))
+        motorCalibration.addView(m4Grid, margin(0, 8, 0, 0))
+
+        motorCalibration.addView(text("Направление вращения настраивается в конфигурации прошивки.", 12f, textSecondary, Typeface.NORMAL), margin(0, 8, 0, 0))
+        content.addView(motorCalibration, margin(0, 0, 0, 16))
 
         val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         val read = actionButton("ПРОЧИТАТЬ", false).apply { setOnClickListener { requestConfig(false) } }
@@ -210,6 +252,7 @@ class MainActivity : Activity() {
         val json = request("$base/api/config", "GET", null)
         val radio = json.getJSONObject("radio")
         val esc = json.getJSONObject("esc")
+        val motors = json.getJSONArray("motors")
         runOnUiThread {
             roll.setText(radio.getInt("roll_channel").toString())
             pitch.setText(radio.getInt("pitch_channel").toString())
@@ -218,6 +261,21 @@ class MainActivity : Activity() {
             arm.setText(radio.getInt("arm_channel").toString())
             armedIdle.setText(esc.getInt("armed_idle_us").toString())
             maxSignal.setText(esc.getInt("motor_signal_max_us").toString())
+
+            // Motor calibration
+            val m1 = motors.getJSONObject(0)
+            val m2 = motors.getJSONObject(1)
+            val m3 = motors.getJSONObject(2)
+            val m4 = motors.getJSONObject(3)
+
+            m1Min.setText(m1.getInt("min_us").toString())
+            m1Max.setText(m1.getInt("max_us").toString())
+            m2Min.setText(m2.getInt("min_us").toString())
+            m2Max.setText(m2.getInt("max_us").toString())
+            m3Min.setText(m3.getInt("min_us").toString())
+            m3Max.setText(m3.getInt("max_us").toString())
+            m4Min.setText(m4.getInt("min_us").toString())
+            m4Max.setText(m4.getInt("max_us").toString())
         }
         return "Настройки прочитаны"
     }
@@ -235,6 +293,23 @@ class MainActivity : Activity() {
             put("armed_idle_us", armedIdle.text.toString().toInt())
             put("motor_signal_max_us", maxSignal.text.toString().toInt())
         })
+
+        // Update motor calibration
+        val motors = json.getJSONArray("motors")
+        val m1 = motors.getJSONObject(0)
+        val m2 = motors.getJSONObject(1)
+        val m3 = motors.getJSONObject(2)
+        val m4 = motors.getJSONObject(3)
+
+        m1.put("min_us", m1Min.text.toString().toInt())
+        m1.put("max_us", m1Max.text.toString().toInt())
+        m2.put("min_us", m2Min.text.toString().toInt())
+        m2.put("max_us", m2Max.text.toString().toInt())
+        m3.put("min_us", m3Min.text.toString().toInt())
+        m3.put("max_us", m3Max.text.toString().toInt())
+        m4.put("min_us", m4Min.text.toString().toInt())
+        m4.put("max_us", m4Max.text.toString().toInt())
+
         request("$base/api/config", "PUT", json.toString())
         return "Настройки сохранены · ESP32 перезапускается"
     }

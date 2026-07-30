@@ -71,6 +71,8 @@ int16_t rollAuthorityUs = 76;
 int16_t pitchAuthorityUs = 76;
 int8_t motorRollSign[4] = {-1, -1, 1, 1};
 int8_t motorPitchSign[4] = {1, -1, 1, -1};
+uint16_t motorMinUs[4] = {1100, 1100, 1100, 1100};
+uint16_t motorMaxUs[4] = {1380, 1380, 1380, 1380};
 float batteryNominalVoltage = 0.0F;
 Adafruit_SSD1306 display(kDisplayWidth, kDisplayHeight, &Wire, -1);
 HardwareSerial receiverSerial(2);
@@ -249,6 +251,8 @@ bool loadConfiguration() {
     if (strcmp(motorName, "M4") == 0) kEscMotorPins[index] = pins["esc"]["M4"] | kEscMotorPins[index];
     motorRollSign[index] = readDirection(motor["roll"], motorRollSign[index]);
     motorPitchSign[index] = readDirection(motor["pitch"], motorPitchSign[index]);
+    motorMinUs[index] = motor["min_us"] | motorMinUs[index];
+    motorMaxUs[index] = motor["max_us"] | motorMaxUs[index];
   }
 
   if (nominalVoltage <= 0.0F || capacityMah == 0) {
@@ -398,8 +402,8 @@ void updateMotorFromReceiver() {
     int16_t mixedOutput = static_cast<int16_t>(motorOutputUs) +
                           rollCorrectionUs * motorRollSign[motorIndex] +
                           pitchCorrectionUs * motorPitchSign[motorIndex];
-    mixedOutput = constrain(mixedOutput, static_cast<int16_t>(kEscPwmSafeUs),
-                            static_cast<int16_t>(escSignalMaxUs));
+    mixedOutput = constrain(mixedOutput, static_cast<int16_t>(motorMinUs[motorIndex]),
+                            static_cast<int16_t>(motorMaxUs[motorIndex]));
     writeEscPwm(kEscPwmChannels[motorIndex], static_cast<uint16_t>(mixedOutput));
   }
 }
