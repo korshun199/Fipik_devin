@@ -14,6 +14,13 @@ android {
         versionCode = 1
         versionName = "0.1"
     }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+    }
 }
 
 kotlin {

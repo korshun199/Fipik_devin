@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Write(/home/work/Fipik_devin/**)",
+      "Exec(**)"
+    ]
+  }
+}
