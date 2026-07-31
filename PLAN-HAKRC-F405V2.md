@@ -94,56 +94,67 @@ UNO Q работает под **Linux на QRB2210**. Прямые пины D0/D
 
 ![Физическая схема UNO Q, HAKRC, GPS, камера](wiring-unoq-hakrc.png)
 
-### Таблица всех соединений
+### Матрица соединений плата/пин ↔ плата/пин
 
-| От | К | Провод | Куда на плате | Примечание |
-|----|---|--------|---------------|------------|
-| LiPo XT60 | HAKRC F405 V2 | VBAT / GND | VBAT+ / GND | Основное питание |
-| HAKRC BEC 5V | USB-UART #1 | 5V / GND | VCC / GND | Питание USB-UART #1 |
-| USB-UART #1 TX | HAKRC F405 V2 | TX | B11 (RX3) | MSP команды |
-| USB-UART #1 RX | HAKRC F405 V2 | RX | B10 (TX3) | Ответы от HAKRC |
-| HAKRC BEC 5V | USB-UART #2 | 5V / GND | VCC / GND | Питание USB-UART #2 |
-| USB-UART #2 TX | u-blox M10 | TX | RX | Конфигурация GPS |
-| USB-UART #2 RX | u-blox M10 | RX | TX | NMEA данные |
-| HAKRC BEC 5V | FPV камера | 5V / GND | VCC / GND | Питание камеры |
-| FPV камера | HAKRC F405 V2 | Video | CAM IN | Аналоговое видео |
-| UNO Q USB-C | USB Hub | USB | — | Питание и данные |
-| USB Hub | USB-UART #1 | USB | — | /dev/ttyUSB0 |
-| USB Hub | USB-UART #2 | USB | — | /dev/ttyUSB1 |
-| ESC 1 | HAKRC F405 V2 | PWM | C08 | Мотор M1 |
-| ESC 2 | HAKRC F405 V2 | PWM | C09 | Мотор M2 |
-| ESC 3 | HAKRC F405 V2 | PWM | A08 | Мотор M3 |
-| ESC 4 | HAKRC F405 V2 | PWM | A09 | Мотор M4 |
-| ELRS RX | HAKRC F405 V2 | CRSF | B07 (RX1) / B06 (TX1) | Пульт |
+| Плата 1 / пин | ↔ | Плата 2 / пин | Сигнал |
+|---------------|---|---------------|--------|
+| HAKRC F405 V2 / B11 (RX3) | ↔ | USB-UART #1 / TX | MSP от UNO Q |
+| HAKRC F405 V2 / B10 (TX3) | ↔ | USB-UART #1 / RX | Ответ к UNO Q |
+| HAKRC F405 V2 / 5V | ↔ | USB-UART #1 / VCC | Питание |
+| HAKRC F405 V2 / GND | ↔ | USB-UART #1 / GND | Земля |
+| USB-UART #1 / USB | ↔ | UNO Q / USB-A (через USB Hub) | Данные |
+| USB-UART #2 / TX | ↔ | u-blox M10 / RX | Конфигурация GPS |
+| USB-UART #2 / RX | ↔ | u-blox M10 / TX | NMEA данные |
+| USB-UART #2 / VCC | ↔ | HAKRC F405 V2 / 5V | Питание |
+| USB-UART #2 / GND | ↔ | HAKRC F405 V2 / GND | Земля |
+| USB-UART #2 / USB | ↔ | UNO Q / USB-A (через USB Hub) | Данные |
+| HAKRC F405 V2 / CAM IN | ↔ | FPV камера / Video | Аналоговое видео |
+| HAKRC F405 V2 / 5V | ↔ | FPV камера / VCC | Питание |
+| HAKRC F405 V2 / GND | ↔ | FPV камера / GND | Земля |
+| HAKRC F405 V2 / C08 | ↔ | ESC 1 / Signal | PWM мотор M1 |
+| HAKRC F405 V2 / C09 | ↔ | ESC 2 / Signal | PWM мотор M2 |
+| HAKRC F405 V2 / A08 | ↔ | ESC 3 / Signal | PWM мотор M3 |
+| HAKRC F405 V2 / A09 | ↔ | ESC 4 / Signal | PWM мотор M4 |
+| HAKRC F405 V2 / 5V | ↔ | ESC / VCC (если нужно) | Питание ESC |
+| HAKRC F405 V2 / GND | ↔ | ESC / GND | Земля ESC |
+| HAKRC F405 V2 / B07 (RX1) | ↔ | ELRS RX / TX | CRSF от пульта |
+| HAKRC F405 V2 / B06 (TX1) | ↔ | ELRS RX / RX | CRSF к пульту |
+| HAKRC F405 V2 / 5V | ↔ | ELRS RX / VCC | Питание |
+| HAKRC F405 V2 / GND | ↔ | ELRS RX / GND | Земля |
+| LiPo / VBAT+ | ↔ | HAKRC F405 V2 / VBAT | Питание дрона |
+| LiPo / GND | ↔ | HAKRC F405 V2 / GND | Земля |
+| UNO Q / USB-C | ↔ | USB Hub / upstream | Питание + данные UNO Q |
+| USB Hub / port 1 | ↔ | USB-UART #1 / USB | HAKRC на /dev/ttyUSB0 |
+| USB Hub / port 2 | ↔ | USB-UART #2 / USB | GPS на /dev/ttyUSB1 |
 
 ### Блок-схема устройств с пинами
 
 ```text
-                     [LiPo 24V]
-                         │
-                         ▼
-               [HAKRC F405 V2 Betaflight]
-                         │
-         ┌───────────────┼───────────────┐
-         │               │               │
-         ▼               ▼               ▼
-    [BEC 5V]        [BEC 5V]        [BEC 5V]
-         │               │               │
-         ▼               ▼               ▼
- [USB-UART #1]   [USB-UART #2]    [FPV камера]
-  TX → B11          TX → RX          Video → CAM IN
-  RX ← B10          RX ← TX          5V / GND
-  VCC/GND           VCC/GND
-         │               │
-         ▼               ▼
- [HAKRC F405 V2]   [u-blox M10 GPS]
- UART3             UART TTL
+[LiPo VBAT+/GND] ↔ [HAKRC F405 V2 VBAT/GND]
 
- [UNO Q, Linux QRB2210]
-   │
-   └── USB Hub
-        ├── USB-UART #1 → /dev/ttyUSB0 → HAKRC MSP
-        └── USB-UART #2 → /dev/ttyUSB1 → GPS NMEA
+[HAKRC F405 V2]
+  ├── C08  ↔ [ESC 1 Signal]
+  ├── C09  ↔ [ESC 2 Signal]
+  ├── A08  ↔ [ESC 3 Signal]
+  ├── A09  ↔ [ESC 4 Signal]
+  ├── B11 (RX3)  ↔ [USB-UART #1 TX]
+  ├── B10 (TX3)  ↔ [USB-UART #1 RX]
+  ├── 5V   ↔ [USB-UART #1 VCC]
+  ├── GND  ↔ [USB-UART #1 GND]
+  ├── 5V   ↔ [USB-UART #2 VCC]
+  ├── GND  ↔ [USB-UART #2 GND]
+  ├── CAM IN     ↔ [FPV камера Video]
+  ├── 5V         ↔ [FPV камера VCC]
+  ├── GND        ↔ [FPV камера GND]
+  ├── B07 (RX1)  ↔ [ELRS TX]
+  └── B06 (TX1)  ↔ [ELRS RX]
+
+[USB-UART #1] ↔ USB ↔ [USB Hub] ↔ USB ↔ [UNO Q, Linux QRB2210]
+[USB-UART #2] ↔ USB ↔ [USB Hub]
+[USB-UART #2 TX] ↔ [u-blox M10 RX]
+[USB-UART #2 RX] ↔ [u-blox M10 TX]
+[USB-UART #2 VCC] ↔ [u-blox M10 VCC]
+[USB-UART #2 GND] ↔ [u-blox M10 GND]
 ```
 
 ### Питание
