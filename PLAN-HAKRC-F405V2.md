@@ -100,6 +100,12 @@ UNO Q работает под **Linux на QRB2210**. Прямые пины D0/D
 >
 > **Прошивку HAKRC F405/F4530V2 не трогаем.** Оставляем заводскую Betaflight. Только включаем MSP на свободном UART — через Betaflight CLI или Configurator.
 
+### Физическая схема размещения
+
+![Где торчат USB-UART и куда идут провода](wiring-physical-layout.png)
+
+На схеме видно, что USB-UART — это внешние флэшки, воткнутые в USB Hub. От них 4 провода идут к HAKRC и GPS.
+
 #### UNO Q ↔ HAKRC F4530V2 (MSP через USB-UART #1)
 
 | HAKRC F4530V2 / пин | ↔ | USB-UART #1 / пин | Сигнал |
