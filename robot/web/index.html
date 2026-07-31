@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UNO Q — компьютерное зрение</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #07101f; color: #e5e7eb; }
+    main { width: min(1100px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 48px; }
+    h1 { margin: 0; color: #7dd3fc; }
+    .subtitle { margin: 8px 0 24px; color: #94a3b8; }
+    .layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 18px; }
+    .panel { overflow: hidden; border: 1px solid #263449; border-radius: 16px; background: #0f172a; box-shadow: 0 18px 50px #0005; }
+    .video { display: grid; min-height: 420px; place-items: center; background: #020617; }
+    .video img { display: none; width: 100%; height: auto; }
+    .placeholder { padding: 32px; text-align: center; color: #94a3b8; }
+    .cards { display: grid; gap: 12px; padding: 16px; }
+    .card { padding: 16px; border: 1px solid #263449; border-radius: 12px; background: #111c31; }
+    .label { margin-bottom: 6px; color: #94a3b8; font-size: 13px; text-transform: uppercase; letter-spacing: .07em; }
+    .value { color: #f8fafc; font-size: 20px; font-weight: 700; }
+    .ok { color: #86efac; }
+    .wait { color: #fcd34d; }
+    .footer { margin-top: 16px; color: #64748b; font-size: 13px; }
+    @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } .video { min-height: 260px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Компьютерное зрение UNO Q</h1>
+    <p class="subtitle">Объект относительно среднего фона и направление его движения</p>
+    <section class="layout">
+      <div class="panel video">
+        <div id="placeholder" class="placeholder">Ожидание USB-камеры</div>
+        <img id="video" src="/video" alt="Поток с камеры">
+      </div>
+      <div class="panel cards">
+        <div class="card"><div class="label">Камера</div><div id="camera" class="value wait">проверка</div></div>
+        <div class="card"><div class="label">Объект</div><div id="object" class="value">не обнаружен</div></div>
+        <div class="card"><div class="label">По горизонтали</div><div id="horizontal" class="value">—</div></div>
+        <div class="card"><div class="label">По глубине</div><div id="depth" class="value">—</div></div>
+        <div class="card"><div class="label">Частота обработки</div><div id="fps" class="value">0 FPS</div></div>
+      </div>
+    </section>
+    <div id="error" class="footer"></div>
+  </main>
+  <script>
+    const elements = Object.fromEntries(["camera", "object", "horizontal", "depth", "fps", "error", "video", "placeholder"].map(id => [id, document.getElementById(id)]));
+
+    async function updateStatus() {
+      try {
+        const response = await fetch("/api/status", { cache: "no-store" });
+        const data = await response.json();
+        const running = data.runtime.camera_state === "камера работает";
+        elements.camera.textContent = data.runtime.camera_state;
+        elements.camera.className = `value ${running ? "ok" : "wait"}`;
+        elements.object.textContent = data.detection.detected ? "обнаружен" : "не обнаружен";
+        elements.horizontal.textContent = data.detection.horizontal;
+        elements.depth.textContent = data.detection.depth;
+        elements.fps.textContent = `${data.runtime.fps.toFixed(1)} FPS`;
+        elements.error.textContent = data.runtime.error || "";
+        elements.video.style.display = running ? "block" : "none";
+        elements.placeholder.style.display = running ? "none" : "block";
+      } catch (error) {
+        elements.camera.textContent = "сервис недоступен";
+        elements.camera.className = "value wait";
+        elements.error.textContent = error.message;
+      }
+    }
+
+    updateStatus();
+    setInterval(updateStatus, 500);
+  </script>
+</body>
+</html>
